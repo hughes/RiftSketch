@@ -44,6 +44,11 @@
           Alt + v - toggle VR | Alt + z - zero VR sensor<br />
           Alt + e - toggle editor |
           Alt + j/k, u/i, m/n - decrement or increment numbers
+          <span ng-show="axes.length === 0">Connect a gamepad to move</span>
+          <div ng-show="axes.length !== 0" style="position: relative">
+            <axis-indicator x="axes[0]" y="axes[1]"></axis-indicator>
+            <axis-indicator x="axes[2]" y="axes[3]"></axis-indicator>
+          </div>
         </span>
         <span class="threed alert alert-warning" ng-show="error">{{error}}</span>
         <video id="monitor" class="threed" autoplay></video>

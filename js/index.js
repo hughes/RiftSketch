@@ -102,9 +102,42 @@ var Sketch = (function () {
 }());
 
 angular.module('index', [])
-  .controller('SketchController', ['$scope', function($scope) {
+.service('GamepadService', function () {
+  function GamepadService () {
+    this.gamepads = [];
+  }
+  GamepadService.prototype.poll = function () {
+    if (typeof navigator.getGamepads === 'function') {
+      this.gamepads = navigator.getGamepads()
+    } else if (typeof navigator.webkitGetGamepads === 'function') {
+      this.gamepads = navigator.webkitGetGamepads();
+    };
+    return this.gamepads;
+  }
+  GamepadService.prototype.hasGamepads = function () {
+    this.poll();
+    return this.gamepads.length > 0;
+  }
+  return new GamepadService();
+})
+.directive('axisIndicator', function () {
+  return {
+    restrict: 'E', // element
+    scope: {
+      x: '=',
+      y: '=',
+    },
+    templateUrl: 'template/axisIndicator.html'
+  };
+})
+.controller('SketchController',
+  ['$scope', 'GamepadService', function($scope, GamepadService) {
     // TODO: lol, this controller is out of control. Refactor and maybe actually
     // use Angular properly.
+    var MOVEMENT_RATE = 0.01;
+    var ROTATION_RATE = 0.01;
+    var GAMEPAD_MOVEMENT_SCALE = 8;
+    var GAMEPAD_ROTATION_SCALE = 1;
 
     navigator.getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
     navigator.getUserMedia(
@@ -116,8 +149,10 @@ angular.module('index', [])
       function () {}
     );
 
+    var gamepad = null;
     var autosave = localStorage.getItem('autosave');
     var files;
+    $scope.axes = [];
     if (autosave) {
       files = [new File('autosave', autosave)];
       $scope.sketch = new Sketch('autosave', files);
@@ -146,22 +181,38 @@ angular.module('index', [])
         this.textarea = document.querySelector('textarea');
       }
 
+      if (GamepadService.hasGamepads()) {
+        gamepad = GamepadService.gamepads[0];
+      } else {
+        gamepad = null;
+      }
+
+      if (gamepad) {
+        $scope.axes = gamepad.axes;
+        if (!$scope.$$phase) {
+          $scope.$apply();
+        }
+      }
+
       // Apply movement
       if (this.deviceManager.sensorDevice) {
         if (this.riftSandbox.vrMode) {
           this.riftSandbox.setHmdPositionRotation(
             this.deviceManager.sensorDevice.getState());
         }
-        this.riftSandbox.setBaseRotation();
-        this.riftSandbox.updateCameraPositionRotation();
       }
-      if (!this.deviceManager.sensorDevice || !this.riftSandbox.vrMode) {
+      if (gamepad && gamepad.axes) {
+        this.riftSandbox.BasePosition.x += gamepad.axes[0] * MOVEMENT_RATE * GAMEPAD_MOVEMENT_SCALE;
+        this.riftSandbox.BasePosition.z += gamepad.axes[1] * MOVEMENT_RATE * GAMEPAD_MOVEMENT_SCALE;
+        this.riftSandbox.BaseRotation.y -= gamepad.axes[2] * ROTATION_RATE * GAMEPAD_ROTATION_SCALE;
+        this.riftSandbox.BaseRotation.x -= gamepad.axes[3] * ROTATION_RATE * GAMEPAD_ROTATION_SCALE;
+      } else if (!this.deviceManager.sensorDevice || !this.riftSandbox.vrMode) {
         this.riftSandbox.setRotation({
           y: mousePos.x / window.innerWidth * Math.PI * 2
         });
-        this.riftSandbox.setBaseRotation();
-        this.riftSandbox.updateCameraPositionRotation();
+        // this.riftSandbox.setBaseRotation();
       }
+      this.riftSandbox.updateCameraPositionRotation();
 
       try {
         this.sketchLoop();
@@ -276,9 +327,6 @@ angular.module('index', [])
         return false;
       });
 
-      var MOVEMENT_RATE = 0.01;
-      var ROTATION_RATE = 0.01;
-
       Mousetrap.bind('w', function () {
         if (!$scope.is_editor_visible) {
           this.riftSandbox.setVelocity(MOVEMENT_RATE);
@@ -373,6 +421,7 @@ angular.module('index', [])
     this.riftSandbox.resize();
 
     // We only support a specific WebVR build at the moment.
+    $scope.hasOverridenUnsupported = true;
     if (!navigator.userAgent.match('Firefox/34')) {
       $scope.seemsUnsupported = true;
     }

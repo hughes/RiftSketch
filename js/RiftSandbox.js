@@ -6,7 +6,7 @@ var RiftSandbox = (function () {
     this.height = height;
     window.HMDRotation = this.HMDRotation = new THREE.Quaternion();
     this.BasePosition = new THREE.Vector3(0, 1.5, -2);
-    this.HMDPosition = new THREE.Vector3();
+    this.HMDPosition = new THREE.Vector3(1.0, 0.0, 0.0);
     this.BaseRotation = new THREE.Quaternion();
     this.plainRotation = new THREE.Vector3();
     this.BaseRotationEuler = new THREE.Euler(0, Math.PI);
@@ -36,6 +36,8 @@ var RiftSandbox = (function () {
 
     this.cameraPivot = new THREE.Object3D();
     this.scene.add(this.cameraPivot);
+
+    this.cameraPivot.add( this.camera );
 
     this.cameraLeft = new THREE.PerspectiveCamera(75, 4/3, 0.1, 1000);
     this.cameraPivot.add( this.cameraLeft );
@@ -125,13 +127,6 @@ var RiftSandbox = (function () {
   function deltaAngleDeg(a,b) {
     return Math.min(360-(Math.abs(a-b)%360),Math.abs(a-b)%360);
   }
-
-  constr.prototype.setBaseRotation = function () {
-    this.BaseRotationEuler.set(
-      angleRangeRad(this.BaseRotationEuler.x),
-      angleRangeRad(this.BaseRotationEuler.y), 0.0 );
-    this.BaseRotation.setFromEuler(this.BaseRotationEuler, 'YZX');
-  };
 
   constr.prototype.initWebGL = function () {
     try {
@@ -281,13 +276,10 @@ var RiftSandbox = (function () {
 
   constr.prototype.updateCameraPositionRotation = function () {
     this._move();
-    if (!this.vrMode) {
-      this.camera.rotation.set(0 , this.plainRotation.y, 0);
-    }
     this.cameraPivot.quaternion.multiplyQuaternions(
       this.BaseRotation, this.HMDRotation);
 
-    var rotatedHMDPosition = new THREE.Vector3();
+    var rotatedHMDPosition = new THREE.Vector3(1.0, 0.0, 0.0);
     rotatedHMDPosition.copy(this.HMDPosition);
     rotatedHMDPosition.applyQuaternion(this.BaseRotation);
     this.cameraPivot.position.copy(this.BasePosition).add(rotatedHMDPosition);
